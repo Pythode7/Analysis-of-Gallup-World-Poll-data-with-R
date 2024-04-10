@@ -1,0 +1,427 @@
+---
+title: "Analysis of Word Happiness Report 2021"
+author: "Jianbo Wu"
+date: "6/20/2021"
+output:
+  html_document: default
+  'html_document:': 
+  fig_width: 8
+  code_folding: hide
+  highlight: tango
+  toc: true
+  toc_float:
+    collapsed: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.width=8, fig.height=4, 
+                      echo = FALSE, warning = FALSE,
+message = FALSE)
+
+```
+
+## Dataset Overview
+
+The following data set is viewing the state of happiness in 166 countries on different continents of the world from 2005 to 2020 and shows how the new science of happiness explains personal and national variations in happiness. The dataset is retrieved from Kaggle. The happiness scores (Life Ladder) and rankings use data from the Gallup World Poll. The columns following the happiness score estimate the extent to which each of six factors – economic production, social support, life expectancy, freedom, absence of corruption, and generosity – contribute to making life evaluations higher in each country than they are in Dystopia, a hypothetical country that has values equal to the world’s lowest national averages for each of the six factors. Besides the common six factors used to evaluate the happiness, tow more factors, positive affect and negative affect, were added as extra metrics.
+
+## Goal of Analysis
+
+The goal of the analysis is to get a better understanding of the distribution of happiness scores in the countries by geography, what the correlation of happiness score with the most common six main metrics is, as well as the difference of the correlation between countries with high scores and countries with low scores. 
+
+## Data Preparation
+
+The original data was grouped by country names from year 2005 to 2020. In order to analyze the happiness for countries on each continent, a new variable 'Continent' was added so that each country was categorized by the geographical regions. The happiness score for each country was represent by the mean of the happiness scores of the past 15 years (NA values were ignored).
+
+## Exam the Happiness Scores on Each Continent
+
+What is the happiness scores for a random country? Below is a box plot for countries on each continent. It is easy to tell the possible range of the happiness score once the country's geographical region is known.
+
+```{r, message=FALSE, warning=FALSE, paged.print=FALSE}
+library(tidyverse)
+library(plotly)
+library(readxl)
+library("RColorBrewer")
+library(sampling)
+
+
+data <- read.csv('C:\\Users\\jianb\\Documents\\CIS Courses\\CS544\\world-happiness-report.csv')
+wd_happiness <- as_tibble(data)
+wd_happiness %>% 
+  select(Country.Name = ï..Country.name, everything()) -> wd_happiness
+
+countries_by_continents <- read.csv("https://raw.githubusercontent.com/dbouquin/IS_608/master/NanosatDB_munging/Countries-Continents.csv")
+
+distinct(countries_by_continents, Continent) -> continent
+
+# countries in Africa
+countries_africa <- countries_by_continents$Country[countries_by_continents$Continent == 'Africa']
+# countries in Asia
+countries_asia <- countries_by_continents$Country[countries_by_continents$Continent == 'Asia']
+# countries in Europe
+countries_euro <- countries_by_continents$Country[countries_by_continents$Continent == 'Europe']
+# countries in North America
+countries_namerica <- countries_by_continents$Country[countries_by_continents$Continent == 'North America']
+# countries in Oceania
+countries_oceania <- countries_by_continents$Country[countries_by_continents$Continent == 'Oceania']
+# countries in South America
+countries_samerica <- countries_by_continents$Country[countries_by_continents$Continent == 'South America']
+
+con <- numeric(nrow(wd_happiness))
+
+for (i in 1: nrow(wd_happiness)){
+  if (wd_happiness$Country.Name[i] %in% countries_africa){
+    con[i] <- 'Africa'
+  } else if (wd_happiness$Country.Name[i] %in% countries_asia){
+    con[i] <- 'Asia'
+  } else if (wd_happiness$Country.Name[i] %in% countries_euro){
+    con[i] <- 'Europe'
+  } else if (wd_happiness$Country.Name[i] %in% countries_namerica){
+    con[i] <- 'North America'
+  } else if (wd_happiness$Country.Name[i] %in% countries_oceania){
+    con[i] <- 'Oceania'
+  } else if (wd_happiness$Country.Name[i] %in% countries_samerica){
+    con[i] <- 'South America'
+  } else if (wd_happiness$Country.Name[i]=='Namibia'){
+    con[i] <- 'Africa'
+  } else if (wd_happiness$Country.Name[i]=='Hong Kong S.A.R. of China'){
+    con[i] <- 'Asia'
+  } else if (wd_happiness$Country.Name[i]=='Kosovo'){
+    con[i] <- 'Europe'
+  } else if (wd_happiness$Country.Name[i]=='Burkina Faso'){
+    con[i] <- 'Africa'
+  } else if (wd_happiness$Country.Name[i]=='North Macedonia'){
+    con[i] <- 'Europe'
+  } else if (wd_happiness$Country.Name[i]=='Czech Republic'){
+    con[i] <- 'Europe'
+  } else if (wd_happiness$Country.Name[i]=='Congo (Brazzaville)'){
+    con[i] <- 'Africa'
+  } else if (wd_happiness$Country.Name[i]=='Somaliland region'){
+    con[i] <- 'Africa'
+  } else if (wd_happiness$Country.Name[i]=='Congo (Kinshasa)'){
+    con[i] <- 'Africa'
+  } else if (wd_happiness$Country.Name[i]=='United States'){
+    con[i] <- 'North America'
+  } else if (wd_happiness$Country.Name[i]=='Taiwan Province of China'){
+    con[i] <- 'Asia'
+  } else if (wd_happiness$Country.Name[i]=='South Korea'){
+    con[i] <- 'Asia'
+  } else if (wd_happiness$Country.Name[i]=='Russia'){
+    con[i] <- 'Europe'
+  } else if (wd_happiness$Country.Name[i]=='Palestinian Territories'){
+    con[i] <- 'Asia'
+  } else if (wd_happiness$Country.Name[i]=='North Cyprus'){
+    con[i] <- 'Europe'
+  } else if (wd_happiness$Country.Name[i]=='Myanmar'){
+    con[i] <- 'Asia'
+  }  else {
+    con[i] <- 'NA'
+  }
+}
+
+wd_happiness %>% 
+  mutate(Continent = con) %>% 
+  select(Continent, everything()) -> wd_happiness
+
+wd_happiness %>% 
+  group_by(Country.Name, Continent) %>% 
+  summarise(Life.Ladder=mean(Life.Ladder), 
+            Log.GDP.per.capita = mean(Log.GDP.per.capita),
+            Social.support = mean(Social.support), 
+            Healthy.life.expectancy.at.birth = mean(Healthy.life.expectancy.at.birth),
+            Freedom.to.make.life.choices = mean(Freedom.to.make.life.choices),
+            Generosity = mean(Generosity),
+            Perceptions.of.corruption = mean(Perceptions.of.corruption),
+            Positive.affect = mean(Positive.affect),
+            Negative.affect = mean(Negative.affect)) -> wd_happiness_summary
+
+# distribution of happiness index for countries by continent
+
+happiness_africa <- wd_happiness_summary[wd_happiness_summary$Continent == 'Africa',]
+
+happiness_asia <- wd_happiness_summary[wd_happiness_summary$Continent == 'Asia',]
+
+happiness_euro <- wd_happiness_summary[wd_happiness_summary$Continent == 'Europe',]
+
+happiness_namerica <- namerica <- wd_happiness_summary[wd_happiness_summary$Continent == 'North America',]
+
+happiness_oceania <- wd_happiness_summary[wd_happiness_summary$Continent == 'Oceania',]
+
+happiness_samerica <- wd_happiness_summary[wd_happiness_summary$Continent == 'South America',]
+
+subplot (
+  plot_ly(y = ~happiness_africa$Life.Ladder, type = 'box', 
+          name = 'Africa'),  
+  plot_ly(y = ~happiness_asia$Life.Ladder, type = 'box', 
+          name = 'Asia'),
+  plot_ly(y = ~happiness_euro$Life.Ladder, type = 'box', 
+          name = 'Europe'), 
+  plot_ly(y = ~happiness_namerica$Life.Ladder, type = 'box', 
+          name = 'N America'),
+  plot_ly(y = ~happiness_oceania$Life.Ladder, type = 'box', 
+          name = 'Oceania'),
+  plot_ly(y = ~happiness_samerica$Life.Ladder, type = 'box', 
+          name = 'S America'), 
+ 
+  margin = 0.05,
+  titleX = F,
+  shareY = TRUE,
+  which_layout = "merge"
+
+)  %>% layout(title = 'Distribution of happiness scores by continent',
+              yaxis = list(title = 'Happiness Score'))
+
+
+
+```
+ 
+As shown above, countries in Africa have the lowest average happiness score, the country having the highest happiness score is in Europe, Oceanian countries have the highest average happiness score (the result is not accurate since the data only includes two most advanced countries in this region). The distribution of happiness scores in South American countries has the narrowest spread. 
+
+## Distribution of top 50 and bottom 50 countries ranking by happiness score 
+
+
+```{r echo=FALSE}
+
+## propotions countries in top 50 and bottom 50 in each continent
+ 
+# top 50 counties ranking in life ladder 
+arrange(wd_happiness_summary, desc(Life.Ladder))[1:50,]-> top50_country
+
+# plot propotions of bottom 50 countries in each continent 
+
+table(top50_country$Continent) %>% 
+  data.frame() %>% plot_ly(type = 'pie', labels = ~Var1, values = ~Freq,
+                           textinfo = 'label+percent',
+                           insidetextorientation = 'radical') %>% 
+  layout(title = 'Proportions of countries with top 50 happiness indexes')
+
+# bottom 50 counties ranking in life ladder 
+arrange(wd_happiness_summary,Life.Ladder)[1:50,] -> bottom50_country
+
+# plot propotions of bottom 50 countries in each continent 
+table(bottom50_country$Continent) %>% 
+  data.frame() %>% plot_ly(type = 'pie', labels = ~Var1, values = ~Freq,
+                           textinfo = 'label+percent',
+                           insidetextorientation = 'radical') %>% 
+  layout(title = 'Proportions of countries with bottom 50 happiness indexes')
+
+
+```
+## 
+As shown above, in top 5o countries ranking in happiness score, 42% percent are from Europe, no African countries in top 50 list, the second place is Asia, 22% of the top 50 countries are from this region, followed are North and South America, they contributes the same number of countries to the top 50 list, unsurprisingly, the two countries from Oceania are also included. While in the bottom 50 countries, three quarters of the countries are from Africa, followed by is Asia in which 9 countries are involved, making up to 18% of the list, Oeanian and South American countries are absent in the bottom 50 list. 
+
+## Proportions of countries in top 50 and bottom 50 lists in each continent
+
+```{r}
+# percentage of countries by each continent in top and bottom 50
+
+# numbers of countries in each continent
+num_count_cont <- table(wd_happiness_summary$Continent)
+
+# percentage of countries by each continent in top and bottom 50
+values_b <- c(as.integer(table(bottom50_country$Continent)), 0, 0)
+values_t <- c(0,as.integer(table(top50_country$Continent)))
+
+percent_by_continent_b <- round(values_b/num_count_cont*100, 2)
+percent_by_continent_t <- round(values_t/num_count_cont*100, 2)
+
+data.frame(percent_by_continent_b, percent_by_continent_t) %>% 
+  plot_ly(x = ~Var1, y = ~Freq, type = 'bar',
+          name = 'Percentage of countries in bottom 50') %>% 
+  add_trace(y = ~Freq.1, 
+            name = 'Percentage of contries in top 50') %>% 
+  layout(title = 'Percentage of countries in top and bottom 50 by continent',
+         xaxis = list(title = 'Continent'),
+         yaxis = list(title = 'Percentage'),
+         barmode = 'group')
+
+```
+As expected, most of the countries in Africa are in the bottom 50 list, accounting for 75% of the countries on this continent. Although Europe has the largest number of countries in top 50 list, South America has the highest percentage (Oceania is excluded for its insufficient data). The result suggests that Africa is lesst happy continent, on the contrary, South America is the happiest continent on average.
+
+## Happiness scores changes for each continent in the past 15 years
+
+```{r}
+# happiness score change from 2008 to 2019 by continent
+wd_happiness %>% 
+  group_by(Continent, year) %>% 
+  summarise(Life.Ladder=mean(Life.Ladder)) -> happiness_cont_yr
+
+# plot happiness changes
+p1 <- plot_ly(happiness_cont_yr, x = ~year[happiness_cont_yr$Continent == 'Africa'],
+              y = ~Life.Ladder[happiness_cont_yr$Continent == 'Africa'],
+              type = 'scatter', mode = 'line', name = 'Africa')
+p2 <- plot_ly(happiness_cont_yr, x = ~year[happiness_cont_yr$Continent == 'Asia'],
+              y = ~Life.Ladder[happiness_cont_yr$Continent == 'Asia'],
+              type = 'scatter', mode = 'line', name = 'Asia')
+p3 <- plot_ly(happiness_cont_yr, x = ~year[happiness_cont_yr$Continent == 'Europe'],
+              y = ~Life.Ladder[happiness_cont_yr$Continent == 'Europe'],
+              type = 'scatter', mode = 'line', name = 'Europe')
+p4 <- plot_ly(happiness_cont_yr, x = ~year[happiness_cont_yr$Continent == 'North America'],
+              y = ~Life.Ladder[happiness_cont_yr$Continent == 'North America'],
+              type = 'scatter', mode = 'line', name = 'North America')
+p5 <- plot_ly(happiness_cont_yr, x = ~year[happiness_cont_yr$Continent == 'Oceania'],
+              y = ~Life.Ladder[happiness_cont_yr$Continent == 'Oceania'],
+              type = 'scatter', mode = 'line', name = 'Oceania')
+p6 <- plot_ly(happiness_cont_yr, x = ~year[happiness_cont_yr$Continent == 'South America'],
+              y = ~Life.Ladder[happiness_cont_yr$Continent == 'South America'],
+              type = 'scatter', mode = 'line', name = 'South America')
+
+subplot(p1,p2,p3,p4,p5,p6,
+        nrows = 6,
+        shareX = TRUE) %>% 
+  layout(title = 'Happiness scores changes for each continent',
+         xaxis = list(title='Year'))
+
+```
+As shown above, countries on all continents experienced a decline in happiness in last 15 years, a collapse happened to all continents except Oceania between 2005 and 2006. Then the happiness score started to recover slowly with fluctuations. Oceanian countries had a subtle fluctuation in this process, happiness scores for South American countries started to continuously decline from 2019 after a short term of recovery. On the contrary, happiness scores for countries in Europe kept growing steadily since 2009.
+
+## Correlation between happiness score and common six factors
+
+The report of world happiness is highly recognized as governments, organizations and civil society increasingly use happiness indicators to inform their policy-making decisions. Therefore, it is essential to know the correlations between happiness score and the most commonly used factors for measurement to get insight into how the factors impact happiness.
+
+```{r}
+# correlation between happiness score and common six factors
+
+pairs(wd_happiness_summary[,3:9], pch = 16, col = 'blue')
+
+cor(wd_happiness_summary[,3:9], use = 'pairwise.complete.obs')
+
+```
+
+As shown above, there are positive correlations between happiness score and Log.GDP.per.capita, Social.support, Healthy.life.expectancy.at.birth, and Freedom.to.make.life.choices respectively, in which the correlations between happiness score and Log.GDP.per.capita are the strongest. The result suggests that happiness is closely associated with income, social support, health, and freedom, and income and health are the most important factors for happiness. 
+
+## Comparison of distribution of Happiness score, per Capital GDP, and Healthy life expectancy at birth
+
+```{r}
+wd_happiness_summary %>% 
+  group_by(Continent) %>% 
+  summarise(Life.Ladder = mean(Life.Ladder, na.rm =TRUE), 
+            Log.GDP.per.capita = mean(Log.GDP.per.capita, na.rm =TRUE),
+            Healthy.life.expectancy.at.birth = mean(Healthy.life.expectancy.at.birth, na.rm = TRUE)) %>% 
+  plot_ly(x = ~Continent, y = ~Life.Ladder, type = 'scatter', mode = 'line', 
+          name = 'Happiness score') %>% 
+  add_trace(y = ~Log.GDP.per.capita, name = 'Per Capita GDP') %>% 
+  add_trace(y = ~Healthy.life.expectancy.at.birth/10, name = 'Healthy life expectancy at birth * 1/10') %>% 
+  layout(yaxis = list(title = 'Index'))
+
+```
+As shown above, the distributions of happiness score, per capital GDP and health life expectancy at birth have similar pattern. The result is consistent with the result from the pairs plot, indirectly proving that happiness is closely associated with income and health. 
+
+## Central Limit Theorem
+
+The central limit theorem states that when sufficiently large random samples are taken from a population with mean (μ) and standard deviation (σ) replaceable, the distribution of the sample means will tends towards a normal distribution even if the original variables themselves are not normally distributed. As suggested by the above plot, the Log.GDP.per.capita variable has high correlation with happiness score, distribution of this variable can reflect happiness score distribution to some extend.
+
+```{r}
+
+# exam the distribution of the data (Log.GDP.per.capita)  
+hist(wd_happiness_summary$Log.GDP.per.capita, col = 'dark green', ylim = c(0,35), xaxt = 'n',
+     main = 'Distribution of Log.GDP.per.capita', xlab = 'Log.GDP.per.capita')
+axis(side = 1, at = seq(6, 12, by = 0.5))
+
+```
+
+As displayed in above histogram, the attribute of Log.GDP.per.capita has a left-skewed distribution. The variable Log.GDP.per.capita will be used as an example to show the application of the central limit theorem. Below histograms showing the sample means of 1000 random samples of sample size 10, 20, 30, and 40 follow a normal distribution.
+
+```{r}
+# mean of data 
+cat ('Data mean:', mean(wd_happiness_summary$Log.GDP.per.capita, na.rm = TRUE), '\t', 'Data sd:', sd(wd_happiness_summary$Log.GDP.per.capita, na.rm = TRUE), '\n', '\n')
+
+# Draw various random samples of the data and show the applicability of the Central Limit Theorem for this variable.
+
+par(mfrow = c(2,2))
+samples <- 1000
+
+set.seed(619)
+
+xbar <- numeric(samples)
+
+for (size in c(10, 20, 30, 40)) {
+  for (i in 1:samples) {
+    xbar[i] <-  mean(sample(wd_happiness_summary$Log.GDP.per.capita, size = size, replace = TRUE), na.rm = TRUE)
+  }
+  
+  hist(xbar, col = 'dark green', xaxt = 'n', 
+       ylim = c(0,350), xlab = 'Log.GDP.per.capita', 
+       main = paste("Sample Size =", size))
+  axis(side = 1, at = seq(6, 12, by = 0.5))
+
+  cat("Sample Size = ", size, '\t', " Mean = ", mean(xbar, na.rm = TRUE), '\t', " SD = ", sd(xbar, na.rm = TRUE), "\n")
+}
+
+```
+ 
+As shown above, Compared to mean and standard deviations of the data from, means of the four samples are almost the same, while the standard deviations decrease with the increase in the sample sizes. These changes also reflect on plots that increase in sample sizes results in the distribution becoming less skewed and slowly approaching the shape of a normal distribution. As the sample size increases, the spread of the distribution becomes narrower. 
+
+## Sampling
+
+Sampling is the selection of a subset of individuals from a statistical population to estimate trends or patterns of the whole population via that can be seen in the subset. There are a variety of probability sampling methods that can be applied to the data. The sampling method used for this analysis are simple random sampling without replacement, systemic, and stratified. The sampling was specifically emphasize the geographical region of the countries in the happiness score. In simple random sampling, each country in the group has the same probability to be selected. The sample size is set to be 40. There will be 40 randomly selected without replacement out of the population of 166. In systematic sampling, the frame is divided into 40 (number of size) groups without bias. The first sample is selected randomly from the first group, then the remaining 39 samples are selected by every 40th sample from the frame. Stratified sampling is applied when the larger group of data is broken into smaller groups based on some common characteristic and then certain sizes are picked from each group. In this analysis, the countries are broken into 6 subgroups according to the continent they are located on. Samples withdrew from each group is determined by the srswor method.   
+
+```{r}
+# avg happiness score for each continent
+
+wd_happiness_summary %>% 
+  group_by(Continent) %>%
+  summarise(Life.Ladder = mean(Life.Ladder)) -> hp_sc_avg_0
+
+# srswor sampling
+set.seed(6231)
+s1 <- srswor(40, nrow(wd_happiness_summary))
+row1 <- (1:nrow(wd_happiness_summary))[s1!=0]
+sample1 <- wd_happiness_summary[row1,]
+# avg happiness score for each continent in sample 1
+sample1 %>% 
+  group_by(Continent) %>%
+  summarise(Life.Ladder = mean(Life.Ladder)) -> hp_sc_avg_1
+
+# systematic sampling
+set.seed(6232)
+N <- nrow(wd_happiness_summary)
+n <- 40
+k <- round(N/n)
+r <- sample(k,1)
+row2 <- seq(r, by=k, length = n)
+sample2 <- wd_happiness_summary[row2,]
+
+# avg happiness score for each continent in sample 1
+sample2 %>% 
+  group_by(Continent) %>%
+  summarise(Life.Ladder = mean(Life.Ladder)) -> hp_sc_avg_2
+
+# stratified sampling
+set.seed(6233)
+freq3 <- table(wd_happiness_summary$Continent)
+size_3 <- 40
+st.size_3 <- round(size_3*(freq3/sum(freq3)))
+as.vector(st.size_3)
+st.size_3 <- st.size_3[st.size_3 !=0]
+wd_happiness_summary_spl <- wd_happiness_summary[wd_happiness_summary$Continent != 'Oceania',]
+st.3 <- strata(wd_happiness_summary_spl, stratanames = c('Continent'),
+               size = st.size_3, method = 'srswor',
+               description = TRUE)
+sample3 <- getdata(wd_happiness_summary, st.3)
+
+# avg happiness score for each continent in sample 1
+sample3 %>% 
+  group_by(Continent) %>%
+  summarise(Life.Ladder = mean(Life.Ladder)) -> hp_sc_avg_3
+
+hp_sc_avg_0 %>% 
+  full_join(hp_sc_avg_1, by=c('Continent')) %>% 
+  full_join(hp_sc_avg_2, by=c('Continent')) %>%
+  full_join(hp_sc_avg_3, by=c('Continent')) %>%
+  plot_ly(x = ~Continent, y = ~Life.Ladder.x, type = 'bar',
+        name = 'Data') %>%
+  add_trace(y = ~Life.Ladder.y, name = 'SRSWOR sampling') %>% 
+  add_trace(y = ~Life.Ladder.x.x, name = 'Systematic sampling') %>% 
+  add_trace(y = ~Life.Ladder.y.y, name = 'Stratified sampling') %>%
+  layout(title = 'Average Happiness Scores of Each Continent by Different Sampling Method',
+         yaxis = list(title='Happiness Score'),
+         barmode = 'group')
+
+```
+
+As shown above, the results of the SRSWOR and systematic samplings are closest to the mean of data. Some deviations from the mean of data in Africa and North America groups was observed from the result of stratified sampling, indicating that these groups might need further divisions into more subgroups based on appropriate characteristics.  
+
+## Conclusion
+
+Throughout the analysis, it has been stated that the happiness score distribution varies in different continent, the spread of happiness score distribution is different in different continents, suggesting that uneven development exists between different continents and between  different countries in the same continent as well. In a nutshell, by continent, Africa has the lowest average happiness score, North America is the happiest continent on average, Europe has the happiest country in the world, but lag of happiness between different countries in South America is narrowest. Among the six common factors used to measure happiness, economy and health are closest to happiness. Whereas, the correlation is not applicable to every group. To further understand the relationship between happiness and these factors to inform policy-making decisions, continent should be divided into smaller regions by their common characteristics, and data for more countries should be included. 
+
