@@ -1,0 +1,1 @@
+# Analysis-of-Gallup-World-Poll-data-with-R
